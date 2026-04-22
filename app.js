@@ -1,6 +1,6 @@
 // --- CONFIGURAÇÕES SUPABASE ---
 const SUPABASE_URL = "https://ahknfgfinwbwczkgjfjf.supabase.co";
-const SUPABASE_KEY = "sb_secret_RHeoJdsY4ZmS1C1QNp1j8Q_eyNgr8v9";
+const SUPABASE_KEY = "sb_secret_Ae7g9qan_Cqa9RApMNEvvQ_KOojuEiq";
 
 const supabaseHeaders = {
   "apikey": SUPABASE_KEY,

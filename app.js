@@ -1,6 +1,6 @@
 // --- CONFIGURAÇÕES SUPABASE ---
-const SUPABASE_URL = "https://ahknfgfinwbwczkgjfjf.supabase.co/rest/v1/";
-const SUPABASE_KEY = "sb_publishable_uR9PBom78o08tJwco0Hksg_ul9qqUuR";
+const SUPABASE_URL = "https://ahknfgfinwbwczkgjfjf.supabase.co";
+const SUPABASE_KEY = "sb_secret_RHeoJdsY4ZmS1C1QNp1j8Q_eyNgr8v9";
 
 const supabaseHeaders = {
   "apikey": SUPABASE_KEY,

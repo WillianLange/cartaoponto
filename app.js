@@ -1,6 +1,6 @@
 // --- CONFIGURAÇÕES SUPABASE ---
-const SUPABASE_URL = "https://ahknfgfinwbwczkgjfjf.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoa25mZ2Zpbndid2N6a2dqZmpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NTI5MjUsImV4cCI6MjA5MjQyODkyNX0.9fL42_dQtKl1pFsdebYNwel50YbdLPzHBbVc812di9U";
+const SUPABASE_URL = "https://ahknfgfinwbwczkgjfjf.supabase.co"; // <<< CORREÇÃO: URL base, sem /rest/v1/
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoa25mZ2Zpbndid2N6a2dqZmpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NTI5MjUsImV4cCI6MjA5MjQyODkyNX0.9fL42_dQtKl1pFsdebYNwel50YbdLPzHBbVc812di9U"; // <<< ATENÇÃO: Substitua pela sua chave real
 
 const supabaseHeaders = {
   "apikey": SUPABASE_KEY,
@@ -128,21 +128,28 @@ const dom = {
   toast: document.getElementById("toast"),
 };
 
+let isAppReady = false;
+
 bootstrap();
 
 async function bootstrap() {
-  state.db = await loadDatabase();
-  await seedInitialData();
-  renderBrandMessage();
-  renderPunchTypeOptions();
-  setInitialDates();
-  bindEvents();
-  restoreSession();
-  injectStyles();
-  updateClock();
-  renderStorageBadge();
-  setInterval(updateClock, 1000);
-  refreshUi();
+  bindEvents(); // Garante que o evento de form (submit) seja capturado imediatamente
+  try {
+    state.db = await loadDatabase();
+    await seedInitialData();
+    renderBrandMessage();
+    renderPunchTypeOptions();
+    setInitialDates();
+    restoreSession();
+    injectStyles();
+    updateClock();
+    renderStorageBadge();
+    setInterval(updateClock, 1000);
+    refreshUi();
+    isAppReady = true; // Libera o sistema após carregar os dados
+  } catch (error) {
+    console.error("Erro na inicialização:", error);
+  }
 }
 
 function bindEvents() {
@@ -621,6 +628,12 @@ function renderPunchTable(container, punches, allowDelete) {
 
 function onLogin(event) {
   event.preventDefault();
+
+  if (!isAppReady) {
+    toast("Conectando ao banco de dados, aguarde um instante...");
+    return;
+  }
+
   const formData = new FormData(dom.loginForm);
   const username = normalizeUsername(formData.get("username"));
   const password = String(formData.get("password") || "");
@@ -927,7 +940,7 @@ function importBackup(event) {
   }
 
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => { // CORREÇÃO: Adicionado async para permitir await
     try {
       const parsed = JSON.parse(String(reader.result || "{}"));
       state.db = normalizeDatabase(parsed);

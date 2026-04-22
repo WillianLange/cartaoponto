@@ -1,6 +1,6 @@
 // --- CONFIGURAÇÕES SUPABASE ---
 const SUPABASE_URL = "https://ahknfgfinwbwczkgjfjf.supabase.co";
-const SUPABASE_KEY = "sb_publishable_uR9PBom78o08tJwco0Hksg_ul9qqUuR";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoa25mZ2Zpbndid2N6a2dqZmpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NTI5MjUsImV4cCI6MjA5MjQyODkyNX0.9fL42_dQtKl1pFsdebYNwel50YbdLPzHBbVc812di9U";
 
 const supabaseHeaders = {
   "apikey": SUPABASE_KEY,

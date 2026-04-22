@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inova | Cartão Ponto</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#1a202c">
+</head>
+<body>
+
+  <div id="portalEntry" class="portal-entry">
+    <header class="portal-header">
+      <img src="logo-inova-white.png" alt="Logo Inova Soluções" class="logo">
+      <h1>Portal do Colaborador</h1>
+    </header>
+    <main class="portal-hero">
+      <div class="hero-content">
+        <h2>Cartão Ponto Inteligente</h2>
+        <p id="motivationMessage">Excelência operacional começa quando disciplina e clareza caminham juntas.</p>
+        <small id="motivationAuthor">Visão institucional</small>
+        <button class="primary-btn large-btn" onclick="document.getElementById('portalEntry').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden');">Acessar o sistema</button>
+      </div>
+    </main>
+  </div>
+
+  <div id="loginScreen" class="login-container hidden">
+    <form id="loginForm" class="login-box">
+      <img src="logo-inova-white.png" alt="Logo Inova Soluções" class="logo">
+      <h2>Acesso ao Ponto</h2>
+      <div class="input-group">
+        <label for="loginUsername">Login</label>
+        <input type="text" id="loginUsername" name="username" required autocomplete="username">
+      </div>
+      <div class="input-group">
+        <label for="loginPassword">Senha</label>
+        <input type="password" id="loginPassword" name="password" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="primary-btn">Entrar</button>
+    </form>
+  </div>
+
+  <div id="appScreen" class="app-layout hidden">
+    <aside class="sidebar">
+      <header class="sidebar-header">
+        <img src="logo-inova-white.png" alt="Logo Inova Soluções" class="logo">
+        <div class="session-info">
+          <strong id="sessionName"></strong>
+          <span id="sessionRole"></span>
+        </div>
+      </header>
+      <nav class="main-nav">
+        <button class="nav-btn active" data-section="dashboardSection">
+          <svg fill="currentColor" viewBox="0 0 20 20"><path d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h10v7.5a.5.5 0 01-.5.5H5.5a.5.5 0 01-.5-.5V5z"/></svg>
+          <span>Painel</span>
+        </button>
+        <button class="nav-btn" data-section="punchSection">
+          <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+          <span>Meu Ponto</span>
+        </button>
+        <button class="nav-btn admin-only" data-section="employeesSection">
+          <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zm-3 4a5 5 0 00-5 5v1h10v-1a5 5 0 00-5-5zm3-4a3 3 0 11-6 0 3 3 0 016 0zm-3 4a5 5 0 00-5 5v1h10v-1a5 5 0 00-5-5zM16 8a3 3 0 11-6 0 3 3 0 016 0zm-3 4a5 5 0 00-5 5v1h10v-1a5 5 0 00-5-5z"/></svg>
+          <span>Colaboradores</span>
+        </button>
+        <button class="nav-btn admin-only" data-section="adjustmentsSection">
+          <svg fill="currentColor" viewBox="0 0 20 20"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"/><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"/></svg>
+          <span>Ajustes</span>
+        </button>
+        <button class="nav-btn admin-only" data-section="reportsSection">
+          <svg fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+          <span>Relatórios</span>
+        </button>
+        <button class="nav-btn" data-section="profileSection">
+          <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0012 11z" clip-rule="evenodd"/></svg>
+          <span>Meu Perfil</span>
+        </button>
+        <button class="nav-btn admin-only" data-section="backupSection">
+          <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          <span>Backup</span>
+        </button>
+      </nav>
+      <footer class="sidebar-footer">
+        <button id="logoutButton" class="logout-btn">
+          <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V5h10a1 1 0 100-2H3zm12.293 4.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L16.586 13H9a1 1 0 110-2h7.586l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          <span>Sair</span>
+        </button>
+        <div class="footer-info">
+          <span id="clockBadge"></span>
+          <span id="storageBadge"></span>
+        </div>
+      </footer>
+    </aside>
+
+    <main class="main-content">
+      <div id="dashboardSection" class="section-block">
+        <header class="section-header">
+          <h2>Painel de Controle</h2>
+          <p>Visão geral da operação e atividades recentes.</p>
+        </header>
+        <div id="dashboardMetrics" class="metric-grid"></div>
+        <div class="content-grid">
+          <div class="grid-col">
+            <h3>Destaques do Dia</h3>
+            <div id="todayHighlight"></div>
+            <h3 class="top-gap">Próximos Feriados</h3>
+            <div id="holidayGrid" class="stack-grid"></div>
+          </div>
+          <div class="grid-col">
+            <h3>Atividade Recente</h3>
+            <div id="activityList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="punchSection" class="section-block hidden">
+        <header class="section-header">
+          <h2>Meu Cartão Ponto</h2>
+          <p>Registre suas entradas e saídas ou consulte um dia específico.</p>
+        </header>
+        <form id="punchDayForm" class="toolbar">
+          <input type="date" name="date" id="punchDayInput" required>
+          <button type="submit" class="primary-btn">Consultar Dia</button>
+        </form>
+        <div id="punchSummary" class="top-gap"></div>
+        <div class="punch-actions top-gap">
+          <div class="punch-buttons-grid">
+            <button class="punch-btn" data-type="clock_in"><span>Registrar</span><strong>Entrada</strong></button>
+            <button class="punch-btn" data-type="lunch_out"><span>Registrar</span><strong>Saída Almoço</strong></button>
+            <button class="punch-btn" data-type="lunch_in"><span>Registrar</span><strong>Retorno Almoço</strong></button>
+            <button class="punch-btn" data-type="clock_out"><span>Registrar</span><strong>Saída</strong></button>
+          </div>
+          <input type="text" id="punchObservationInput" placeholder="Adicionar observação (opcional)...">
+        </div>
+        <h3 class="top-gap">Apontamentos do Dia</h3>
+        <div id="todayPunchTable"></div>
+      </div>
+
+      <div id="employeesSection" class="section-block hidden admin-only">
+        <header class="section-header">
+          <h2>Colaboradores</h2>
+          <p>Gerencie os cadastros, jornadas e credenciais da equipe.</p>
+        </header>
+        <div class="content-grid">
+          <div class="grid-col">
+            <h3>Cadastrar / Editar Colaborador</h3>
+            <form id="employeeForm" class="card-form">
+              <input type="hidden" name="employeeId">
+              <div class="input-group">
+                <label for="employeeName">Nome completo</label>
+                <input type="text" id="employeeName" name="name" required>
+              </div>
+              <div class="input-group">
+                <label for="employeeDepartment">Setor (opcional)</label>
+                <input type="text" id="employeeDepartment" name="department">
+              </div>
+              <div class="input-group">
+                <label for="employeeJourney">Formato de batidas</label>
+                <select id="employeeJourney" name="journeyType" required>
+                  <option value="integral">4 batidas (Com pausa para almoço)</option>
+                  <option value="meio-periodo">2 batidas (Direto, sem pausa)</option>
+                </select>
+              </div>
+              <div class="input-group">
+                <label>Horas previstas por dia da semana (matemática)</label>
+                <div class="form-row" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center;">
+                  <div><small>Dom</small><input type="number" name="expectedHours0" step="0.5" value="0" min="0" required style="padding: 4px; text-align: center; width: 100%; box-sizing: border-box;"></div>
+                  <div><small>Seg</small><input type="number" name="expectedHours1" step="0.5" value="8" min="0" required style="padding: 4px; text-align: center; width: 100%; box-sizing: border-box;"></div>
+                  <div><small>Ter</small><input type="number" name="expectedHours2" step="0.5" value="8" min="0" required style="padding: 4px; text-align: center; width: 100%; box-sizing: border-box;"></div>
+                  <div><small>Qua</small><input type="number" name="expectedHours3" step="0.5" value="8" min="0" required style="padding: 4px; text-align: center; width: 100%; box-sizing: border-box;"></div>
+                  <div><small>Qui</small><input type="number" name="expectedHours4" step="0.5" value="8" min="0" required style="padding: 4px; text-align: center; width: 100%; box-sizing: border-box;"></div>
+                  <div><small>Sex</small><input type="number" name="expectedHours5" step="0.5" value="8" min="0" required style="padding: 4px; text-align: center; width: 100%; box-sizing: border-box;"></div>
+                  <div><small>Sáb</small><input type="number" name="expectedHours6" step="0.5" value="0" min="0" required style="padding: 4px; text-align: center; width: 100%; box-sizing: border-box;"></div>
+                </div>
+              </div>
+              <div class="input-group">
+                <label for="employeeWorkSchedule">Descrição da carga horária (visível no painel)</label>
+                <textarea id="employeeWorkSchedule" name="workSchedule" rows="2" placeholder="Ex: Seg a Qui das 7:00 as 17:00..."></textarea>
+              </div>
+              <div class="input-group">
+                <label for="employeeUsername">Login de acesso</label>
+                <input type="text" id="employeeUsername" name="username" required>
+              </div>
+              <div class="input-group">
+                <label for="employeePassword">Senha (mín. 6 caracteres)</label>
+                <input type="password" id="employeePassword" name="password" autocomplete="new-password" placeholder="Deixe em branco para não alterar">
+              </div>
+              <div class="toolbar">
+                <button type="submit" class="primary-btn">Salvar</button>
+                <button type="button" id="cancelEditButton">Limpar</button>
+              </div>
+            </form>
+          </div>
+          <div class="grid-col">
+            <h3>Equipe Cadastrada</h3>
+            <div id="employeeList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="adjustmentsSection" class="section-block hidden admin-only">
+        <header class="section-header">
+          <h2>Ajuste de Ponto</h2>
+          <p>Insira ou reverta apontamentos manualmente para um colaborador.</p>
+        </header>
+        <div class="content-grid">
+          <div class="grid-col">
+            <h3>Inserir Apontamento Manual</h3>
+            <form id="manualPunchForm" class="card-form">
+              <div class="input-group">
+                <label for="manualEmployee">Colaborador</label>
+                <select id="manualEmployee" name="employeeId" required></select>
+              </div>
+              <div class="form-row">
+                <div class="input-group">
+                  <label for="manualDate">Data</label>
+                  <input type="date" id="manualDate" name="date" required>
+                </div>
+                <div class="input-group">
+                  <label for="manualTime">Hora</label>
+                  <input type="time" id="manualTime" name="time" required>
+                </div>
+              </div>
+              <div class="input-group">
+                <label for="manualPunchType">Tipo de batida</label>
+                <select id="manualPunchType" name="punchType" required></select>
+              </div>
+              <div class="toolbar">
+                <button type="submit" class="primary-btn">Inserir Batida</button>
+              </div>
+            </form>
+          </div>
+          <div class="grid-col">
+            <h3>Reverter Apontamentos</h3>
+            <form id="adjustmentFilterForm" class="toolbar">
+              <select id="adjustmentEmployee" name="employeeId" required></select>
+              <input type="date" name="date" required>
+              <button type="submit" class="primary-btn">Carregar Dia</button>
+            </form>
+            <div id="adjustmentSummary" class="top-gap"></div>
+            <div id="adjustmentList" class="top-gap"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="reportsSection" class="section-block hidden admin-only">
+        <header class="section-header">
+          <h2>Relatórios</h2>
+          <p>Gere o espelho de ponto por colaborador e período.</p>
+        </header>
+        <form id="reportForm" class="toolbar card-form">
+          <div class="input-group">
+            <label for="reportEmployee">Colaborador</label>
+            <select id="reportEmployee" name="employeeId" required></select>
+          </div>
+          <div class="input-group">
+            <label for="reportStartDate">Data inicial</label>
+            <input type="date" id="reportStartDate" name="startDate" required>
+          </div>
+          <div class="input-group">
+            <label for="reportEndDate">Data final</label>
+            <input type="date" id="reportEndDate" name="endDate" required>
+          </div>
+          <button type="submit" class="primary-btn">Gerar Relatório</button>
+        </form>
+        <div id="reportSummary" class="top-gap"></div>
+        <div id="reportTable" class="top-gap"></div>
+      </div>
+
+      <div id="profileSection" class="section-block hidden">
+        <header class="section-header">
+          <h2>Meu Perfil</h2>
+          <p>Altere suas credenciais de acesso.</p>
+        </header>
+        <form id="profileForm" class="card-form" style="max-width: 480px;">
+          <div class="input-group">
+            <label for="profileUsername">Login</label>
+            <input type="text" id="profileUsername" name="username" required>
+          </div>
+          <div class="input-group">
+            <label for="profileCurrentPassword">Senha atual</label>
+            <input type="password" id="profileCurrentPassword" name="currentPassword" required autocomplete="current-password">
+          </div>
+          <div class="input-group">
+            <label for="profileNewPassword">Nova senha (mín. 6 caracteres)</label>
+            <input type="password" id="profileNewPassword" name="newPassword" required autocomplete="new-password">
+          </div>
+          <div class="toolbar">
+            <button type="submit" class="primary-btn">Atualizar Credenciais</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="backupSection" class="section-block hidden admin-only">
+        <header class="section-header">
+          <h2>Backup e Restauração</h2>
+          <p>Exporte todos os dados do sistema para um arquivo JSON ou importe um backup existente.</p>
+        </header>
+        <div class="hint-box warning">
+          <strong>Atenção:</strong> A importação de um backup substituirá todos os dados atuais armazenados neste navegador. Use com cuidado.
+        </div>
+        <div class="toolbar top-gap">
+          <button id="backupExportButton" class="primary-btn">Exportar Backup (JSON)</button>
+          <label class="primary-btn" for="backupImportInput">Importar Backup (JSON)</label>
+          <input type="file" id="backupImportInput" accept=".json,application/json" class="hidden-file-input">
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

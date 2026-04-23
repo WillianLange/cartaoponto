@@ -665,7 +665,7 @@ function logout() {
   refreshUi();
 }
 
-function onSaveEmployee(event) {
+async function onSaveEmployee(event) {
   event.preventDefault();
 
   try {

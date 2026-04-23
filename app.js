@@ -166,7 +166,7 @@ function bindEvents() {
   dom.profileForm.addEventListener("submit", onUpdateCredentials);
   dom.reportForm.addEventListener("submit", onGenerateReport);
   dom.navButtons.forEach((button) => button.addEventListener("click", () => showSection(button.dataset.section)));
-  dom.backupExportButton?.addEventListener("click", exportBackup);
+  if (dom.backupExportButton) dom.backupExportButton.addEventListener("click", exportBackup);
   dom.backupImportInput.addEventListener("change", importBackup);
 }
 
@@ -296,7 +296,8 @@ function buildEmployeeMetrics() {
   const todaySummary = summarizeDay(state.me, todayKey(), getPunchesForDay(state.me.id, todayKey()));
   const todayPunches = getPunchesForDay(state.me.id, todayKey());
   const expectedPunchesList = getExpectedPunches(state.me.journeyType);
-  const nextType = expectedPunchesList[todayPunches.length]?.label || "Jornada concluída";
+  const nextPunchObj = expectedPunchesList[todayPunches.length];
+  const nextType = nextPunchObj ? nextPunchObj.label : "Jornada concluída";
   const weekReport = buildReport(state.me, weekRange.start, weekRange.end);
   const monthReport = buildReport(state.me, monthRange.start, monthRange.end);
 
@@ -337,7 +338,8 @@ function renderTodayHighlight() {
   const punches = getPunchesForDay(state.me.id, today);
   const summary = summarizeDay(state.me, today, punches);
   const expectedPunchesList = getExpectedPunches(state.me.journeyType);
-  const nextType = expectedPunchesList[punches.length]?.label || "Jornada concluída";
+  const nextPunchObj = expectedPunchesList[punches.length];
+  const nextType = nextPunchObj ? nextPunchObj.label : "Jornada concluída";
 
   dom.todayHighlight.innerHTML = `
     <div class="highlight-panel">
@@ -410,7 +412,7 @@ function renderEmployeeList() {
             <tr>
               <td><strong>${employee.name}</strong></td>
               <td>${employee.username}</td>
-              <td>${JOURNEY_TYPES[employee.journeyType]?.label || "N/A"}</td>
+              <td>${JOURNEY_TYPES[employee.journeyType] ? JOURNEY_TYPES[employee.journeyType].label : "N/A"}</td>
               <td>${employee.department || "Não informado"}</td>
               <td>${employee.workSchedule || "-"}</td>
               <td>${getPunchesForDay(employee.id, todayKey()).length} batida(s)</td>
@@ -971,7 +973,7 @@ function downloadReportCsv() {
     [],
     ["Colaborador", state.report.employee.name],
     ["Período", `${formatDate(state.report.startDate)} a ${formatDate(state.report.endDate)}`],
-    ["Jornada", JOURNEY_TYPES[state.report.employee.journeyType]?.label || "N/A"],
+  ["Jornada", JOURNEY_TYPES[state.report.employee.journeyType] ? JOURNEY_TYPES[state.report.employee.journeyType].label : "N/A"],
     ["Total Previsto", formatMinutesClock(state.report.expectedMinutes)],
     ["Trabalhado", formatMinutesClock(state.report.totalWorkedMinutes)],
     ["Horas extras", formatMinutesClock(state.report.totalOvertimeMinutes)],
@@ -1318,7 +1320,8 @@ function brazilianHolidays(year) {
 
 function holidayName(dateKey) {
   const year = parseDateKey(dateKey).getFullYear();
-  return brazilianHolidays(year).find((holiday) => holiday.date === dateKey)?.name || "";
+  const holiday = brazilianHolidays(year).find((holiday) => holiday.date === dateKey);
+  return holiday ? holiday.name : "";
 }
 
 function calculateEaster(year) {
@@ -1433,7 +1436,7 @@ function slugify(value) {
 }
 
 function escapeCsvCell(value) {
-  const text = String(value ?? "");
+  const text = String(value !== null && value !== undefined ? value : "");
   return /[;"\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 

@@ -1212,13 +1212,16 @@ async function loadDatabase() {
       fetch(`${SUPABASE_URL}/rest/v1/users?select=*`, { headers: supabaseHeaders }),
       fetch(`${SUPABASE_URL}/rest/v1/punches?select=*`, { headers: supabaseHeaders })
     ]);
-    if (!usersRes.ok || !punchesRes.ok) throw new Error("Erro ao conectar no Supabase.");
+    if (!usersRes.ok || !punchesRes.ok) {
+      throw new Error(`Falha na conexão: ${usersRes.status} ${usersRes.statusText}`);
+    }
     
     const users = await usersRes.json();
     const punches = await punchesRes.json();
     return normalizeDatabase({ users, punches });
   } catch (error) {
     console.error("Falha na nuvem, lendo cache local:", error);
+    toast(`Falha na conexão: ${error.message}`);
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? normalizeDatabase(JSON.parse(raw)) : createEmptyDatabase();
   }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "inova-ponto-pwa-v1";
+const CACHE_NAME = "inova-ponto-pwa-v2"; // Mudança de versão obriga a baixar o código novo
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -37,22 +37,16 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) {
-        return cached;
-      }
-
-      return fetch(event.request)
-        .then((response) => {
-          if (!response || response.status !== 200 || response.type !== "basic") {
-            return response;
-          }
-
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
-          return response;
-        })
-        .catch(() => caches.match("./index.html"));
-    })
+    // Tenta baixar da internet primeiro (para ter o código atualizado do GitHub)
+    fetch(event.request)
+      .then((response) => {
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+        return response;
+      })
+      .catch(() => {
+        // Se estiver sem internet, usa o que tem na memória local
+        return caches.match(event.request).then((cached) => cached || caches.match("./index.html"));
+      })
   );
 });

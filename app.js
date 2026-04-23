@@ -1485,6 +1485,10 @@ function makeId() {
 }
 
 function toast(message) {
+  if (!dom.toast) {
+    console.log("TOAST:", message);
+    return;
+  }
   dom.toast.textContent = message;
   dom.toast.classList.remove("hidden");
   clearTimeout(toast.timer);

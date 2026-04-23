@@ -1,9 +1,9 @@
-const CACHE_NAME = "inova-ponto-pwa-v2"; // Mudança de versão obriga a baixar o código novo
+const CACHE_NAME = "inova-ponto-pwa-v3"; // Mudança de versão obriga a baixar o código novo
 const APP_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
-  "./app.js",
+  "./app.js?v=3",
   "./manifest.webmanifest",
   "./logo-inova-white.png",
   "./icons/icon-192.png",

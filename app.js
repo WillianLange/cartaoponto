@@ -1,6 +1,6 @@
 // --- CONFIGURAÇÕES SUPABASE ---
 const SUPABASE_URL = "https://ahknfgfinwbwczkgjfjf.supabase.co"; // <<< CORREÇÃO: URL base, sem /rest/v1/
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoa25mZ2Zpbndid2N6a2dqZmpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NTI5MjUsImV4cCI6MjA5MjQyODkyNX0.9fL42_dQtKl1pFsdebYNwel50YbdLPzHBbVc812di9U"; // <<< ATENÇÃO: Substitua pela sua chave real
+const SUPABASE_KEY = "sb_secret_3y84Z-fyOBhaG--gUGKuZA_Bk-sEZNg"; // <<< ATENÇÃO: Substitua pela sua chave real
 
 const supabaseHeaders = {
   "apikey": SUPABASE_KEY,

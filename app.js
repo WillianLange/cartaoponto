@@ -109,6 +109,7 @@ const dom = {
   cancelEditButton: document.getElementById("cancelEditButton"),
   manualPunchForm: document.getElementById("manualPunchForm"),
   manualEmployee: document.getElementById("manualEmployee"),
+  manualPunchCompany: document.getElementById("manualPunchCompany"),
   manualPunchType: document.getElementById("manualPunchType"),
   adjustmentFilterForm: document.getElementById("adjustmentFilterForm"),
   adjustmentEmployee: document.getElementById("adjustmentEmployee"),
@@ -449,6 +450,20 @@ function populateEmployeeSelectors() {
     select.innerHTML = options;
     select.disabled = employees.length === 0;
   });
+
+  if (dom.manualPunchCompany) {
+    const currentCompany = dom.manualPunchCompany.value;
+    const allCompanies = new Set();
+    employees.forEach((emp) => (emp.companies || []).forEach((c) => allCompanies.add(c)));
+    const sortedCompanies = Array.from(allCompanies).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    
+    const companyOptions = '<option value="">Selecione a empresa (opcional)...</option>' + 
+      sortedCompanies.map((c) => `<option value="${c}">${c}</option>`).join("");
+      
+    dom.manualPunchCompany.innerHTML = companyOptions;
+    dom.manualPunchCompany.disabled = sortedCompanies.length === 0;
+    dom.manualPunchCompany.value = currentCompany || "";
+  }
 
   const disableForms = employees.length === 0;
   dom.manualPunchForm.querySelector('button[type="submit"]').disabled = disableForms;

@@ -438,8 +438,12 @@ function renderEmployeeList() {
 function populateEmployeeSelectors() {
   const employees = getEmployees();
   const options = employees.length
-    ? employees.map((employee) => `<option value="${employee.id}">${employee.name}</option>`).join("")
+    ? '<option value="">Selecione o colaborador...</option>' + employees.map((employee) => `<option value="${employee.id}">${employee.name}</option>`).join("")
     : '<option value="">Nenhum colaborador cadastrado</option>';
+
+  const currentManual = dom.manualEmployee.value;
+  const currentAdj = dom.adjustmentEmployee.value;
+  const currentRep = dom.reportEmployee.value;
 
   [dom.manualEmployee, dom.adjustmentEmployee, dom.reportEmployee].forEach((select) => {
     select.innerHTML = options;
@@ -452,10 +456,9 @@ function populateEmployeeSelectors() {
   dom.reportForm.querySelector('button[type="submit"]').disabled = disableForms;
 
   if (!disableForms) {
-    const firstEmployeeId = employees[0].id;
-    dom.manualEmployee.value = dom.manualEmployee.value || firstEmployeeId;
-    dom.adjustmentEmployee.value = state.adjustmentFilters?.employeeId || dom.adjustmentEmployee.value || firstEmployeeId;
-    dom.reportEmployee.value = state.reportFilters?.employeeId || dom.reportEmployee.value || firstEmployeeId;
+    dom.manualEmployee.value = currentManual || "";
+    dom.adjustmentEmployee.value = state.adjustmentFilters?.employeeId || currentAdj || "";
+    dom.reportEmployee.value = state.reportFilters?.employeeId || currentRep || "";
     updateReportCompanySelector();
   }
 }
@@ -497,7 +500,7 @@ function renderPunchSection() {
   if (dom.punchCompanyContainer && dom.punchCompanySelect) {
     if (state.me.companies && state.me.companies.length > 0) {
       dom.punchCompanyContainer.classList.remove("hidden");
-      dom.punchCompanySelect.innerHTML = state.me.companies.map((c) => `<option value="${c}">${c}</option>`).join("");
+      dom.punchCompanySelect.innerHTML = '<option value="">Selecione a empresa...</option>' + state.me.companies.map((c) => `<option value="${c}">${c}</option>`).join("");
     } else {
       dom.punchCompanyContainer.classList.add("hidden");
       dom.punchCompanySelect.innerHTML = "";
@@ -829,6 +832,8 @@ async function onManualPunch(event) {
     const time = String(formData.get("time") || "");
     const punchType = String(formData.get("punchType") || "");
     const company = String(formData.get("company") || "");
+    
+    if (!employeeId) throw new Error("Selecione o colaborador.");
     const employee = findUserById(employeeId);
 
     if (!employee || employee.role !== "employee") throw new Error("Colaborador não encontrado.");
@@ -846,6 +851,8 @@ async function onManualPunch(event) {
     );
 
     dom.manualPunchForm.elements.time.value = "";
+    dom.manualPunchForm.elements.company.value = "";
+    dom.manualPunchForm.elements.employeeId.value = "";
     refreshUi();
     toast("Apontamento manual inserido.");
   } catch (error) {
@@ -903,6 +910,11 @@ async function onSelfPunch(type) {
   try {
     const notes = String(dom.punchObservationInput.value || "").trim();
     const company = dom.punchCompanySelect && !dom.punchCompanyContainer.classList.contains("hidden") ? String(dom.punchCompanySelect.value || "") : "";
+
+    if (!dom.punchCompanyContainer.classList.contains("hidden") && !company) {
+      throw new Error("Por favor, selecione a empresa antes de registrar o ponto.");
+    }
+
     await addPunch(
       {
         employeeId: state.me.id,
@@ -916,6 +928,7 @@ async function onSelfPunch(type) {
     );
 
     dom.punchObservationInput.value = "";
+    if (dom.punchCompanySelect) dom.punchCompanySelect.value = "";
     refreshUi();
     showSection("punchSection");
     toast("Ponto registrado.");

@@ -124,6 +124,10 @@
           <button type="submit" class="primary-btn">Consultar Dia</button>
         </form>
         <div id="punchSummary" class="top-gap"></div>
+        <div class="input-group top-gap hidden" id="punchCompanyContainer">
+          <label for="punchCompanySelect">Selecione a Empresa</label>
+          <select id="punchCompanySelect"></select>
+        </div>
         <div class="punch-actions top-gap">
           <div class="punch-buttons-grid">
             <button class="punch-btn" data-type="clock_in"><span>Registrar</span><strong>Entrada</strong></button>
@@ -154,6 +158,10 @@
               <div class="input-group">
                 <label for="employeeDepartment">Setor (opcional)</label>
                 <input type="text" id="employeeDepartment" name="department">
+              </div>
+              <div class="input-group">
+                <label for="companiesInput">Empresas vinculadas (separadas por vírgula)</label>
+                <input type="text" name="companies" id="companiesInput" placeholder="Ex: Inova SP, Inova RJ, Cliente A">
               </div>
               <div class="input-group">
                 <label for="employeeJourney">Formato de batidas</label>
@@ -212,6 +220,10 @@
                 <label for="manualEmployee">Colaborador</label>
                 <select id="manualEmployee" name="employeeId" required></select>
               </div>
+              <div class="input-group">
+                <label for="manualPunchCompany">Empresa do apontamento</label>
+                <input type="text" id="manualPunchCompany" name="company" placeholder="Ex: Cliente A (opcional)">
+              </div>
               <div class="form-row">
                 <div class="input-group">
                   <label for="manualDate">Data</label>
@@ -253,6 +265,12 @@
           <div class="input-group">
             <label for="reportEmployee">Colaborador</label>
             <select id="reportEmployee" name="employeeId" required></select>
+          </div>
+          <div class="input-group">
+            <label for="reportCompany">Filtrar por Empresa</label>
+            <select name="reportCompany" id="reportCompany">
+              <option value="">Todas as empresas</option>
+            </select>
           </div>
           <div class="input-group">
             <label for="reportStartDate">Data inicial</label>

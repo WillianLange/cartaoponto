@@ -501,6 +501,15 @@ function renderPunchSection() {
     if (state.me.companies && state.me.companies.length > 0) {
       dom.punchCompanyContainer.classList.remove("hidden");
       dom.punchCompanySelect.innerHTML = '<option value="">Selecione a empresa...</option>' + state.me.companies.map((c) => `<option value="${c}">${c}</option>`).join("");
+
+      const isEntryPunch = !nextPunch || ["clock_in", "lunch_in"].includes(nextPunch.value);
+      if (isEntryPunch) {
+        dom.punchCompanySelect.value = "";
+        dom.punchCompanySelect.disabled = false;
+      } else if (punches.length > 0) {
+        dom.punchCompanySelect.value = punches[punches.length - 1].company || "";
+        dom.punchCompanySelect.disabled = true;
+      }
     } else {
       dom.punchCompanyContainer.classList.add("hidden");
       dom.punchCompanySelect.innerHTML = "";
@@ -909,10 +918,18 @@ async function onSelfPunch(type) {
 
   try {
     const notes = String(dom.punchObservationInput.value || "").trim();
-    const company = dom.punchCompanySelect && !dom.punchCompanyContainer.classList.contains("hidden") ? String(dom.punchCompanySelect.value || "") : "";
+    const punchesToday = getPunchesForDay(state.me.id, todayKey());
+    let company = "";
 
-    if (!dom.punchCompanyContainer.classList.contains("hidden") && !company) {
-      throw new Error("Por favor, selecione a empresa antes de registrar o ponto.");
+    const isEntryPunch = ["clock_in", "lunch_in"].includes(type);
+
+    if (isEntryPunch) {
+      company = dom.punchCompanySelect && !dom.punchCompanyContainer.classList.contains("hidden") ? String(dom.punchCompanySelect.value || "") : "";
+      if (!dom.punchCompanyContainer.classList.contains("hidden") && !company) {
+        throw new Error("Por favor, selecione a empresa antes de registrar o ponto.");
+      }
+    } else if (punchesToday.length > 0) {
+      company = punchesToday[punchesToday.length - 1].company || "";
     }
 
     await addPunch(
@@ -1116,7 +1133,8 @@ function summarizeDay(employee, dateKey, punches) {
     times[punch.punchType] = formatTime(new Date(punch.timestamp));
   });
 
-  const company = sortedPunches.find((p) => p.company)?.company || "";
+  const uniqueCompanies = Array.from(new Set(sortedPunches.map((p) => p.company).filter(Boolean)));
+  const company = uniqueCompanies.join(" / ") || "";
 
   let status = "default";
   if (isWorkDay) {

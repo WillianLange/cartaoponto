@@ -123,9 +123,12 @@ const dom = {
   profileForm: document.getElementById("profileForm"),
   reportForm: document.getElementById("reportForm"),
   reportEmployee: document.getElementById("reportEmployee"),
+  reportCompany: document.getElementById("reportCompany"),
   reportSummary: document.getElementById("reportSummary"),
   reportTable: document.getElementById("reportTable"),
   toast: document.getElementById("toast"),
+  punchCompanyContainer: document.getElementById("punchCompanyContainer"),
+  punchCompanySelect: document.getElementById("punchCompanySelect"),
 };
 
 let isAppReady = false;
@@ -168,6 +171,9 @@ function bindEvents() {
   dom.navButtons.forEach((button) => button.addEventListener("click", () => showSection(button.dataset.section)));
   if (dom.backupExportButton) dom.backupExportButton.addEventListener("click", exportBackup);
   dom.backupImportInput.addEventListener("change", importBackup);
+  if (dom.reportEmployee) {
+    dom.reportEmployee.addEventListener("change", updateReportCompanySelector);
+  }
 }
 
 function refreshUi() {
@@ -377,7 +383,7 @@ function renderActivityList() {
     <article class="activity-item">
       <div>
         <strong>${describePunchActivity(punch, state.me.role === "admin")}</strong>
-        <p>${formatDateTime(punch.timestamp)}</p>
+        <p>${formatDateTime(punch.timestamp)}${punch.company ? ` • ${punch.company}` : ""}</p>
       </div>
       <span class="tag">${formatPunchSource(punch.source)}</span>
     </article>
@@ -400,6 +406,7 @@ function renderEmployeeList() {
           <tr>
             <th>Nome</th>
             <th>Login</th>
+            <th>Empresas</th>
             <th>Jornada</th>
             <th>Setor</th>
             <th>Carga Horária</th>
@@ -412,6 +419,7 @@ function renderEmployeeList() {
             <tr>
               <td><strong>${employee.name}</strong></td>
               <td>${employee.username}</td>
+              <td>${(employee.companies || []).join(", ") || "-"}</td>
               <td>${JOURNEY_TYPES[employee.journeyType] ? JOURNEY_TYPES[employee.journeyType].label : "N/A"}</td>
               <td>${employee.department || "Não informado"}</td>
               <td>${employee.workSchedule || "-"}</td>
@@ -448,6 +456,21 @@ function populateEmployeeSelectors() {
     dom.manualEmployee.value = dom.manualEmployee.value || firstEmployeeId;
     dom.adjustmentEmployee.value = state.adjustmentFilters?.employeeId || dom.adjustmentEmployee.value || firstEmployeeId;
     dom.reportEmployee.value = state.reportFilters?.employeeId || dom.reportEmployee.value || firstEmployeeId;
+    updateReportCompanySelector();
+  }
+}
+
+function updateReportCompanySelector() {
+  if (!dom.reportCompany || !dom.reportEmployee) return;
+  const employeeId = dom.reportEmployee.value;
+  const employee = findUserById(employeeId);
+  if (employee && employee.companies && employee.companies.length > 0) {
+    dom.reportCompany.innerHTML = `<option value="">Todas as empresas</option>` + 
+      employee.companies.map((c) => `<option value="${c}">${c}</option>`).join("");
+    dom.reportCompany.disabled = false;
+  } else {
+    dom.reportCompany.innerHTML = `<option value="">Todas as empresas</option>`;
+    dom.reportCompany.disabled = true;
   }
 }
 
@@ -470,6 +493,16 @@ function renderPunchSection() {
       <article class="metric mini-metric"><span class="metric-label">Próxima ação</span><strong>${nextPunch ? nextPunch.label : "Jornada concluída"}</strong><p>${isToday ? "Batidas disponíveis apenas no dia atual" : "Visualização histórica"}</p></article>
     </div>
   `;
+
+  if (dom.punchCompanyContainer && dom.punchCompanySelect) {
+    if (state.me.companies && state.me.companies.length > 0) {
+      dom.punchCompanyContainer.classList.remove("hidden");
+      dom.punchCompanySelect.innerHTML = state.me.companies.map((c) => `<option value="${c}">${c}</option>`).join("");
+    } else {
+      dom.punchCompanyContainer.classList.add("hidden");
+      dom.punchCompanySelect.innerHTML = "";
+    }
+  }
 
   const allowedValues = expectedPunchesList.map(p => p.value);
   dom.punchButtons.forEach((button) => {
@@ -532,7 +565,7 @@ function renderReportFromState() {
   dom.reportEmployee.value = state.reportFilters.employeeId;
   dom.reportForm.elements.startDate.value = state.reportFilters.startDate;
   dom.reportForm.elements.endDate.value = state.reportFilters.endDate;
-  state.report = buildReport(employee, state.reportFilters.startDate, state.reportFilters.endDate);
+  state.report = buildReport(employee, state.reportFilters.startDate, state.reportFilters.endDate, state.reportFilters.company);
   dom.reportSummary.innerHTML = `
     <div class="metric-grid">
       <article class="metric"><span class="metric-label">Previsto</span><strong>${formatMinutesClock(state.report.expectedMinutes)}</strong></article>
@@ -555,6 +588,7 @@ function renderReportFromState() {
             <th>Data</th>
             <th>Dia</th>
             <th>Tipo</th>
+            <th>Empresa</th>
             <th>Entrada</th>
             <th>Saída almoço</th>
             <th>Retorno almoço</th>
@@ -571,6 +605,7 @@ function renderReportFromState() {
               <td>${formatDate(day.date)}</td>
               <td>${day.weekDay}</td>
               <td><span class="tag">${day.holidayName || (day.isWorkDay ? "Dia de trabalho" : "Folga")}</span></td>
+              <td>${day.company || "-"}</td>
               <td>${day.times.clock_in || "-"}</td>
               <td>${day.times.lunch_out || "-"}</td>
               <td>${day.times.lunch_in || "-"}</td>
@@ -603,6 +638,7 @@ function renderPunchTable(container, punches, allowDelete) {
         <thead>
           <tr>
             <th>Tipo</th>
+            <th>Empresa</th>
             <th>Horário e observação</th>
             <th>Origem</th>
             ${allowDelete ? "<th>Ações</th>" : ""}
@@ -612,6 +648,7 @@ function renderPunchTable(container, punches, allowDelete) {
           ${punches.map((punch) => `
             <tr>
               <td>${PUNCH_LABELS[punch.punchType] || punch.punchType}</td>
+              <td>${punch.company || "-"}</td>
               <td>
                 <div class="time-note">
                   <strong>${formatDateTime(punch.timestamp)}</strong>
@@ -677,6 +714,7 @@ async function onSaveEmployee(event) {
     const journeyType = String(formData.get("journeyType") || "");
     const department = String(formData.get("department") || "").trim();
     const workSchedule = String(formData.get("workSchedule") || "").trim();
+    const companies = String(formData.get("companies") || "").split(",").map((c) => c.trim()).filter(Boolean);
     const expectedHoursWeekly = Array.from({ length: 7 }, (_, i) => Number(formData.get(`expectedHours${i}`)) || 0);
 
     if (!name) throw new Error("Informe o nome do colaborador.");
@@ -695,6 +733,7 @@ async function onSaveEmployee(event) {
       employee.journeyType = journeyType;
       employee.department = department;
       employee.workSchedule = workSchedule;
+      employee.companies = companies;
       employee.expectedHoursWeekly = expectedHoursWeekly;
       employee.updatedAt = nowIso();
 
@@ -716,6 +755,7 @@ async function onSaveEmployee(event) {
         journeyType,
         department,
         workSchedule,
+        companies,
         expectedHoursWeekly,
         isActive: true,
         createdAt: nowIso(),
@@ -753,6 +793,7 @@ function onEmployeeListClick(event) {
   dom.employeeForm.elements.journeyType.value = employee.journeyType;
   dom.employeeForm.elements.department.value = employee.department;
   if (dom.employeeForm.elements.workSchedule) dom.employeeForm.elements.workSchedule.value = employee.workSchedule;
+  if (dom.employeeForm.elements.companies) dom.employeeForm.elements.companies.value = (employee.companies || []).join(", ");
   
   const fallbackHours = employee.expectedHours || (employee.journeyType === "meio-periodo" ? 4 : 8);
   for (let i = 0; i < 7; i++) {
@@ -770,6 +811,7 @@ function resetEmployeeForm() {
   dom.employeeForm.elements.employeeId.value = "";
   dom.employeeForm.elements.journeyType.value = "integral";
   if (dom.employeeForm.elements.workSchedule) dom.employeeForm.elements.workSchedule.value = "";
+  if (dom.employeeForm.elements.companies) dom.employeeForm.elements.companies.value = "";
   for (let i = 0; i < 7; i++) {
     if (dom.employeeForm.elements[`expectedHours${i}`]) {
       dom.employeeForm.elements[`expectedHours${i}`].value = (i === 0 || i === 6) ? 0 : 8;
@@ -786,6 +828,7 @@ async function onManualPunch(event) {
     const date = String(formData.get("date") || "");
     const time = String(formData.get("time") || "");
     const punchType = String(formData.get("punchType") || "");
+    const company = String(formData.get("company") || "");
     const employee = findUserById(employeeId);
 
     if (!employee || employee.role !== "employee") throw new Error("Colaborador não encontrado.");
@@ -795,6 +838,7 @@ async function onManualPunch(event) {
       {
         employeeId,
         punchType,
+        company,
         timestamp: localDateTimeToIso(date, time),
         source: "admin",
       },
@@ -858,10 +902,12 @@ async function onSelfPunch(type) {
 
   try {
     const notes = String(dom.punchObservationInput.value || "").trim();
+    const company = dom.punchCompanySelect && !dom.punchCompanyContainer.classList.contains("hidden") ? String(dom.punchCompanySelect.value || "") : "";
     await addPunch(
       {
         employeeId: state.me.id,
         punchType: type,
+        company,
         timestamp: nowIso(),
         source: "self",
         notes,
@@ -914,12 +960,13 @@ function onGenerateReport(event) {
     const employeeId = String(formData.get("employeeId") || "");
     const startDate = String(formData.get("startDate") || "");
     const endDate = String(formData.get("endDate") || "");
+    const company = dom.reportCompany ? String(dom.reportCompany.value || "") : "";
 
     if (!employeeId) throw new Error("Selecione um colaborador.");
     if (!startDate || !endDate) throw new Error("Informe o período do relatório.");
     if (startDate > endDate) throw new Error("A data inicial não pode ser maior que a final.");
 
-    state.reportFilters = { employeeId, startDate, endDate };
+    state.reportFilters = { employeeId, startDate, endDate, company };
     renderReportFromState();
   } catch (error) {
     toast(error.message);
@@ -979,11 +1026,12 @@ function downloadReportCsv() {
     ["Horas extras", formatMinutesClock(state.report.totalOvertimeMinutes)],
     ["Déficit", formatMinutesClock(state.report.totalMissingMinutes)],
     [],
-    ["Data", "Dia", "Tipo", "Entrada", "Saída almoço", "Retorno almoço", "Saída", "Previsto", "Trabalhado", "Extras", "Déficit"],
+    ["Data", "Dia", "Tipo", "Empresa", "Entrada", "Saída almoço", "Retorno almoço", "Saída", "Previsto", "Trabalhado", "Extras", "Déficit"],
     ...state.report.days.map((day) => [
       formatDate(day.date),
       day.weekDay,
       day.holidayName || (day.isWorkDay ? "Dia de trabalho" : "Folga"),
+      day.company || "-",
       day.times.clock_in || "-",
       day.times.lunch_out || "-",
       day.times.lunch_in || "-",
@@ -1002,8 +1050,11 @@ function downloadReportCsv() {
   toast("Relatório exportado em CSV.");
 }
 
-function buildReport(employee, startDate, endDate) {
-  const punches = getPunchesForRange(employee.id, startDate, endDate);
+function buildReport(employee, startDate, endDate, companyFilter) {
+  let punches = getPunchesForRange(employee.id, startDate, endDate);
+  if (companyFilter) {
+    punches = punches.filter((p) => p.company === companyFilter);
+  }
   const grouped = groupPunchesByDay(punches);
   const days = enumerateDates(startDate, endDate).map((dateKey) => summarizeDay(employee, dateKey, grouped.get(dateKey) || []));
 
@@ -1052,6 +1103,8 @@ function summarizeDay(employee, dateKey, punches) {
     times[punch.punchType] = formatTime(new Date(punch.timestamp));
   });
 
+  const company = sortedPunches.find((p) => p.company)?.company || "";
+
   let status = "default";
   if (isWorkDay) {
     if (balance >= 0) status = "complete";
@@ -1071,6 +1124,7 @@ function summarizeDay(employee, dateKey, punches) {
     overtimeMinutes,
     missingMinutes,
     times,
+    company,
   };
 }
 
@@ -1102,6 +1156,7 @@ async function addPunch(payload, options = { enforceSequence: false }) {
     id: makeId(),
     employeeId: payload.employeeId,
     punchType: payload.punchType,
+    company: payload.company || "",
     timestamp: payload.timestamp,
     source: payload.source || "self",
     notes: payload.notes || "",
@@ -1253,6 +1308,7 @@ function normalizeUser(user) {
     journeyType: ["integral", "meio-periodo"].includes(user.journeyType) ? user.journeyType : "integral",
     department: String(user.department || ""),
     workSchedule: String(user.workSchedule || ""),
+    companies: Array.isArray(user.companies) ? user.companies : (typeof user.companies === "string" ? user.companies.split(",").map((c) => c.trim()).filter(Boolean) : []),
     expectedHoursWeekly: Array.isArray(user.expectedHoursWeekly) ? user.expectedHoursWeekly.map(Number) : 
       (user.expectedHours !== undefined 
         ? [0, Number(user.expectedHours), Number(user.expectedHours), Number(user.expectedHours), Number(user.expectedHours), Number(user.expectedHours), 0] 
@@ -1272,6 +1328,7 @@ function normalizePunch(punch) {
     id: String(punch.id || makeId()),
     employeeId: String(punch.employeeId || punch.employee_id),
     punchType: String(punch.punchType || punch.punch_type || ""),
+    company: String(punch.company || ""),
     timestamp: String(punch.timestamp || nowIso()),
     source: String(punch.source || "self"),
     notes: String(punch.notes || ""),

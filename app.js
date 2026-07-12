@@ -61,6 +61,18 @@ function getExpectedPunches(journeyType) {
   return PUNCH_TYPES;
 }
 
+// --- PARÂMETROS DE APURAÇÃO CLT (exclusivamente tempo, sem valores financeiros) ---
+// Art. 58, §1º da CLT: variações de horário no registro de ponto não excedentes
+// de 5 minutos por marcação, observado o limite máximo de 10 minutos diários,
+// não são descontadas nem computadas como jornada extraordinária.
+// Súmula 366 do TST: ultrapassado o limite diário de 10 minutos, computa-se a
+// TOTALIDADE da variação (e não apenas o excedente).
+// Observação técnica: como o sistema armazena a carga diária prevista (e não o
+// horário previsto de cada marcação), a tolerância é aplicada sobre o saldo
+// diário (trabalhado - previsto), respeitando o teto legal de 10 minutos/dia.
+const CLT_TOLERANCE_PER_PUNCH_MINUTES = 5;
+const CLT_TOLERANCE_DAILY_MINUTES = 10;
+
 const WEEKDAY_NAMES = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 const MOTIVATIONAL_MESSAGES = [
@@ -109,7 +121,6 @@ const dom = {
   cancelEditButton: document.getElementById("cancelEditButton"),
   manualPunchForm: document.getElementById("manualPunchForm"),
   manualEmployee: document.getElementById("manualEmployee"),
-  manualPunchCompany: document.getElementById("manualPunchCompany"),
   manualPunchType: document.getElementById("manualPunchType"),
   adjustmentFilterForm: document.getElementById("adjustmentFilterForm"),
   adjustmentEmployee: document.getElementById("adjustmentEmployee"),
@@ -124,12 +135,9 @@ const dom = {
   profileForm: document.getElementById("profileForm"),
   reportForm: document.getElementById("reportForm"),
   reportEmployee: document.getElementById("reportEmployee"),
-  reportCompany: document.getElementById("reportCompany"),
   reportSummary: document.getElementById("reportSummary"),
   reportTable: document.getElementById("reportTable"),
   toast: document.getElementById("toast"),
-  punchCompanyContainer: document.getElementById("punchCompanyContainer"),
-  punchCompanySelect: document.getElementById("punchCompanySelect"),
 };
 
 let isAppReady = false;
@@ -172,9 +180,6 @@ function bindEvents() {
   dom.navButtons.forEach((button) => button.addEventListener("click", () => showSection(button.dataset.section)));
   if (dom.backupExportButton) dom.backupExportButton.addEventListener("click", exportBackup);
   dom.backupImportInput.addEventListener("change", importBackup);
-  if (dom.reportEmployee) {
-    dom.reportEmployee.addEventListener("change", updateReportCompanySelector);
-  }
 }
 
 function refreshUi() {
@@ -293,7 +298,7 @@ function buildAdminMetrics() {
     { label: "Colaboradores", value: String(employees.length), detail: employees.length ? "Equipe cadastrada neste navegador" : "Nenhum colaborador cadastrado" },
     { label: "Horas na semana", value: formatMinutesClock(weekWorked), detail: `${formatDate(weekRange.start)} a ${formatDate(weekRange.end)}` },
     { label: "Horas no mês", value: formatMinutesClock(monthWorked), detail: monthLabel(monthRange.start) },
-    { label: "Saldo do mês", value: formatMinutesClock(monthExtra), detail: `Déficit ${formatMinutesClock(monthMissing)}` },
+    { label: "Saldo do mês", value: formatMinutesSigned(monthExtra - monthMissing), detail: `Extras ${formatMinutesClock(monthExtra)} • Déficit ${formatMinutesClock(monthMissing)}` },
   ];
 }
 
@@ -310,7 +315,7 @@ function buildEmployeeMetrics() {
 
   return [
     { label: "Semana atual", value: formatMinutesClock(weekReport.totalWorkedMinutes), detail: `Extras ${formatMinutesClock(weekReport.totalOvertimeMinutes)}` },
-    { label: "Mês atual", value: formatMinutesClock(monthReport.totalWorkedMinutes), detail: `Saldo ${formatMinutesClock(monthReport.totalOvertimeMinutes - monthReport.totalMissingMinutes)}` },
+    { label: "Mês atual", value: formatMinutesClock(monthReport.totalWorkedMinutes), detail: `Saldo ${formatMinutesSigned(monthReport.netBalanceMinutes)}` },
     { label: "Previsto hoje", value: formatMinutesClock(todaySummary.expectedMinutes), detail: todaySummary.holidayName || todaySummary.journeyDescription },
     { label: "Próxima ação", value: nextType, detail: `${todayPunches.length} batida(s) registrada(s) hoje` },
   ];
@@ -384,7 +389,7 @@ function renderActivityList() {
     <article class="activity-item">
       <div>
         <strong>${describePunchActivity(punch, state.me.role === "admin")}</strong>
-        <p>${formatDateTime(punch.timestamp)}${punch.company ? ` • ${punch.company}` : ""}</p>
+        <p>${formatDateTime(punch.timestamp)}</p>
       </div>
       <span class="tag">${formatPunchSource(punch.source)}</span>
     </article>
@@ -407,7 +412,6 @@ function renderEmployeeList() {
           <tr>
             <th>Nome</th>
             <th>Login</th>
-            <th>Empresas</th>
             <th>Jornada</th>
             <th>Setor</th>
             <th>Carga Horária</th>
@@ -420,7 +424,6 @@ function renderEmployeeList() {
             <tr>
               <td><strong>${employee.name}</strong></td>
               <td>${employee.username}</td>
-              <td>${(employee.companies || []).join(", ") || "-"}</td>
               <td>${JOURNEY_TYPES[employee.journeyType] ? JOURNEY_TYPES[employee.journeyType].label : "N/A"}</td>
               <td>${employee.department || "Não informado"}</td>
               <td>${employee.workSchedule || "-"}</td>
@@ -439,31 +442,13 @@ function renderEmployeeList() {
 function populateEmployeeSelectors() {
   const employees = getEmployees();
   const options = employees.length
-    ? '<option value="">Selecione o colaborador...</option>' + employees.map((employee) => `<option value="${employee.id}">${employee.name}</option>`).join("")
+    ? employees.map((employee) => `<option value="${employee.id}">${employee.name}</option>`).join("")
     : '<option value="">Nenhum colaborador cadastrado</option>';
-
-  const currentManual = dom.manualEmployee.value;
-  const currentAdj = dom.adjustmentEmployee.value;
-  const currentRep = dom.reportEmployee.value;
 
   [dom.manualEmployee, dom.adjustmentEmployee, dom.reportEmployee].forEach((select) => {
     select.innerHTML = options;
     select.disabled = employees.length === 0;
   });
-
-  if (dom.manualPunchCompany) {
-    const currentCompany = dom.manualPunchCompany.value;
-    const allCompanies = new Set();
-    employees.forEach((emp) => (emp.companies || []).forEach((c) => allCompanies.add(c)));
-    const sortedCompanies = Array.from(allCompanies).sort((a, b) => a.localeCompare(b, "pt-BR"));
-    
-    const companyOptions = '<option value="">Selecione a empresa (opcional)...</option>' + 
-      sortedCompanies.map((c) => `<option value="${c}">${c}</option>`).join("");
-      
-    dom.manualPunchCompany.innerHTML = companyOptions;
-    dom.manualPunchCompany.disabled = sortedCompanies.length === 0;
-    dom.manualPunchCompany.value = currentCompany || "";
-  }
 
   const disableForms = employees.length === 0;
   dom.manualPunchForm.querySelector('button[type="submit"]').disabled = disableForms;
@@ -471,24 +456,10 @@ function populateEmployeeSelectors() {
   dom.reportForm.querySelector('button[type="submit"]').disabled = disableForms;
 
   if (!disableForms) {
-    dom.manualEmployee.value = currentManual || "";
-    dom.adjustmentEmployee.value = state.adjustmentFilters?.employeeId || currentAdj || "";
-    dom.reportEmployee.value = state.reportFilters?.employeeId || currentRep || "";
-    updateReportCompanySelector();
-  }
-}
-
-function updateReportCompanySelector() {
-  if (!dom.reportCompany || !dom.reportEmployee) return;
-  const employeeId = dom.reportEmployee.value;
-  const employee = findUserById(employeeId);
-  if (employee && employee.companies && employee.companies.length > 0) {
-    dom.reportCompany.innerHTML = `<option value="">Todas as empresas</option>` + 
-      employee.companies.map((c) => `<option value="${c}">${c}</option>`).join("");
-    dom.reportCompany.disabled = false;
-  } else {
-    dom.reportCompany.innerHTML = `<option value="">Todas as empresas</option>`;
-    dom.reportCompany.disabled = true;
+    const firstEmployeeId = employees[0].id;
+    dom.manualEmployee.value = dom.manualEmployee.value || firstEmployeeId;
+    dom.adjustmentEmployee.value = state.adjustmentFilters?.employeeId || dom.adjustmentEmployee.value || firstEmployeeId;
+    dom.reportEmployee.value = state.reportFilters?.employeeId || dom.reportEmployee.value || firstEmployeeId;
   }
 }
 
@@ -507,29 +478,10 @@ function renderPunchSection() {
     <div class="metric-grid compact-metric-grid">
       <article class="metric mini-metric"><span class="metric-label">Data</span><strong>${formatDate(dateKey)}</strong><p>${summary.holidayName || summary.journeyDescription}</p></article>
       <article class="metric mini-metric"><span class="metric-label">Previsto</span><strong>${formatMinutesClock(summary.expectedMinutes)}</strong><p>${summary.isWorkDay ? "Dia de trabalho" : "Dia de folga"}</p></article>
-      <article class="metric mini-metric"><span class="metric-label">Trabalhado</span><strong>${formatMinutesClock(summary.workedMinutes)}</strong><p>Saldo ${formatMinutesClock(summary.overtimeMinutes - summary.missingMinutes)}</p></article>
+      <article class="metric mini-metric"><span class="metric-label">Trabalhado</span><strong>${formatMinutesClock(summary.workedMinutes)}</strong><p>Saldo ${formatMinutesSigned(summary.overtimeMinutes - summary.missingMinutes)}</p></article>
       <article class="metric mini-metric"><span class="metric-label">Próxima ação</span><strong>${nextPunch ? nextPunch.label : "Jornada concluída"}</strong><p>${isToday ? "Batidas disponíveis apenas no dia atual" : "Visualização histórica"}</p></article>
     </div>
   `;
-
-  if (dom.punchCompanyContainer && dom.punchCompanySelect) {
-    if (state.me.companies && state.me.companies.length > 0) {
-      dom.punchCompanyContainer.classList.remove("hidden");
-      dom.punchCompanySelect.innerHTML = '<option value="">Selecione a empresa...</option>' + state.me.companies.map((c) => `<option value="${c}">${c}</option>`).join("");
-
-      const isEntryPunch = !nextPunch || ["clock_in", "lunch_in"].includes(nextPunch.value);
-      if (isEntryPunch) {
-        dom.punchCompanySelect.value = "";
-        dom.punchCompanySelect.disabled = false;
-      } else if (punches.length > 0) {
-        dom.punchCompanySelect.value = punches[punches.length - 1].company || "";
-        dom.punchCompanySelect.disabled = true;
-      }
-    } else {
-      dom.punchCompanyContainer.classList.add("hidden");
-      dom.punchCompanySelect.innerHTML = "";
-    }
-  }
 
   const allowedValues = expectedPunchesList.map(p => p.value);
   dom.punchButtons.forEach((button) => {
@@ -592,20 +544,29 @@ function renderReportFromState() {
   dom.reportEmployee.value = state.reportFilters.employeeId;
   dom.reportForm.elements.startDate.value = state.reportFilters.startDate;
   dom.reportForm.elements.endDate.value = state.reportFilters.endDate;
-  state.report = buildReport(employee, state.reportFilters.startDate, state.reportFilters.endDate, state.reportFilters.company);
+  state.report = buildReport(employee, state.reportFilters.startDate, state.reportFilters.endDate);
+  const netInfo = describeNetBalance(state.report.netBalanceMinutes);
   dom.reportSummary.innerHTML = `
     <div class="metric-grid">
       <article class="metric"><span class="metric-label">Previsto</span><strong>${formatMinutesClock(state.report.expectedMinutes)}</strong></article>
       <article class="metric"><span class="metric-label">Trabalhado</span><strong>${formatMinutesClock(state.report.totalWorkedMinutes)}</strong></article>
-      <article class="metric"><span class="metric-label">Extras</span><strong>${formatMinutesClock(state.report.totalOvertimeMinutes)}</strong></article>
-      <article class="metric"><span class="metric-label">Déficit</span><strong>${formatMinutesClock(state.report.totalMissingMinutes)}</strong></article>
+      <article class="metric"><span class="metric-label">Extras — Dia Útil</span><strong>${formatMinutesClock(state.report.totalOvertimeWeekdayMinutes)}</strong><p>Enquadramento padrão (ex.: 50%)</p></article>
+      <article class="metric"><span class="metric-label">Extras — Dom/Feriado</span><strong>${formatMinutesClock(state.report.totalOvertimeSundayHolidayMinutes)}</strong><p>Enquadramento conforme CCT (CLT: 100%)</p></article>
+      <article class="metric"><span class="metric-label">Déficit</span><strong>${formatMinutesClock(state.report.totalMissingMinutes)}</strong><p>Atrasos, faltas e saídas antecipadas</p></article>
+      <article class="metric"><span class="metric-label">Saldo Líquido (Banco de Horas)</span><strong>${formatMinutesSigned(state.report.netBalanceMinutes)}</strong><p>${netInfo.label}</p></article>
+    </div>
+    <div class="hint-box top-gap">
+      <strong>Tolerância legal aplicada</strong>
+      <p>Art. 58, §1º da CLT: variações diárias de até ${CLT_TOLERANCE_DAILY_MINUTES} minutos (limite de ${CLT_TOLERANCE_PER_PUNCH_MINUTES} min por marcação) foram desconsideradas em ${state.report.toleranceDays} dia(s) do período.</p>
     </div>
     <div class="toolbar start top-gap">
       <button id="downloadReportButton" class="primary-btn" type="button">Baixar CSV</button>
+      <button id="printReportButton" class="primary-btn" type="button">Imprimir Espelho de Ponto</button>
     </div>
   `;
 
   document.getElementById("downloadReportButton").addEventListener("click", downloadReportCsv);
+  document.getElementById("printReportButton").addEventListener("click", printReport);
 
   dom.reportTable.innerHTML = `
     <div class="table-wrap top-gap">
@@ -615,35 +576,49 @@ function renderReportFromState() {
             <th>Data</th>
             <th>Dia</th>
             <th>Tipo</th>
-            <th>Empresa</th>
             <th>Entrada</th>
             <th>Saída almoço</th>
             <th>Retorno almoço</th>
             <th>Saída</th>
             <th>Previsto</th>
             <th>Trabalhado</th>
-            <th>Extras</th>
+            <th>Extras Útil</th>
+            <th>Extras Dom/Fer</th>
             <th>Déficit</th>
           </tr>
         </thead>
         <tbody>
           ${state.report.days.map((day) => `
             <tr class="day-status-${day.status}">
-              <td>${formatDate(day.date)}</td>
+              <td>${formatDate(day.date)}${day.toleranceApplied ? ' <span class="tolerance-mark" title="Tolerância Art. 58, §1º CLT aplicada (variação ≤ 10 min desconsiderada)">§</span>' : ""}</td>
               <td>${day.weekDay}</td>
               <td><span class="tag">${day.holidayName || (day.isWorkDay ? "Dia de trabalho" : "Folga")}</span></td>
-              <td>${day.company || "-"}</td>
               <td>${day.times.clock_in || "-"}</td>
               <td>${day.times.lunch_out || "-"}</td>
               <td>${day.times.lunch_in || "-"}</td>
               <td>${day.times.clock_out || "-"}</td>
               <td>${formatMinutesClock(day.expectedMinutes)}</td>
               <td>${formatMinutesClock(day.workedMinutes)}</td>
-              <td>${formatMinutesClock(day.overtimeMinutes)}</td>
+              <td>${formatMinutesClock(day.overtimeWeekdayMinutes)}</td>
+              <td>${formatMinutesClock(day.overtimeSundayHolidayMinutes)}</td>
               <td>${formatMinutesClock(day.missingMinutes)}</td>
             </tr>
           `).join("")}
         </tbody>
+        <tfoot>
+          <tr class="report-totals">
+            <td colspan="7"><strong>TOTAIS DO PERÍODO</strong></td>
+            <td><strong>${formatMinutesClock(state.report.expectedMinutes)}</strong></td>
+            <td><strong>${formatMinutesClock(state.report.totalWorkedMinutes)}</strong></td>
+            <td><strong>${formatMinutesClock(state.report.totalOvertimeWeekdayMinutes)}</strong></td>
+            <td><strong>${formatMinutesClock(state.report.totalOvertimeSundayHolidayMinutes)}</strong></td>
+            <td><strong>${formatMinutesClock(state.report.totalMissingMinutes)}</strong></td>
+          </tr>
+          <tr class="report-totals">
+            <td colspan="7"><strong>SALDO LÍQUIDO (BANCO DE HORAS)</strong></td>
+            <td colspan="5"><strong>${formatMinutesSigned(state.report.netBalanceMinutes)} — ${describeNetBalance(state.report.netBalanceMinutes).label}</strong></td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   `;
@@ -665,7 +640,6 @@ function renderPunchTable(container, punches, allowDelete) {
         <thead>
           <tr>
             <th>Tipo</th>
-            <th>Empresa</th>
             <th>Horário e observação</th>
             <th>Origem</th>
             ${allowDelete ? "<th>Ações</th>" : ""}
@@ -675,7 +649,6 @@ function renderPunchTable(container, punches, allowDelete) {
           ${punches.map((punch) => `
             <tr>
               <td>${PUNCH_LABELS[punch.punchType] || punch.punchType}</td>
-              <td>${punch.company || "-"}</td>
               <td>
                 <div class="time-note">
                   <strong>${formatDateTime(punch.timestamp)}</strong>
@@ -741,7 +714,6 @@ async function onSaveEmployee(event) {
     const journeyType = String(formData.get("journeyType") || "");
     const department = String(formData.get("department") || "").trim();
     const workSchedule = String(formData.get("workSchedule") || "").trim();
-    const companies = String(formData.get("companies") || "").split(",").map((c) => c.trim()).filter(Boolean);
     const expectedHoursWeekly = Array.from({ length: 7 }, (_, i) => Number(formData.get(`expectedHours${i}`)) || 0);
 
     if (!name) throw new Error("Informe o nome do colaborador.");
@@ -760,7 +732,6 @@ async function onSaveEmployee(event) {
       employee.journeyType = journeyType;
       employee.department = department;
       employee.workSchedule = workSchedule;
-      employee.companies = companies;
       employee.expectedHoursWeekly = expectedHoursWeekly;
       employee.updatedAt = nowIso();
 
@@ -782,7 +753,6 @@ async function onSaveEmployee(event) {
         journeyType,
         department,
         workSchedule,
-        companies,
         expectedHoursWeekly,
         isActive: true,
         createdAt: nowIso(),
@@ -820,7 +790,6 @@ function onEmployeeListClick(event) {
   dom.employeeForm.elements.journeyType.value = employee.journeyType;
   dom.employeeForm.elements.department.value = employee.department;
   if (dom.employeeForm.elements.workSchedule) dom.employeeForm.elements.workSchedule.value = employee.workSchedule;
-  if (dom.employeeForm.elements.companies) dom.employeeForm.elements.companies.value = (employee.companies || []).join(", ");
   
   const fallbackHours = employee.expectedHours || (employee.journeyType === "meio-periodo" ? 4 : 8);
   for (let i = 0; i < 7; i++) {
@@ -838,7 +807,6 @@ function resetEmployeeForm() {
   dom.employeeForm.elements.employeeId.value = "";
   dom.employeeForm.elements.journeyType.value = "integral";
   if (dom.employeeForm.elements.workSchedule) dom.employeeForm.elements.workSchedule.value = "";
-  if (dom.employeeForm.elements.companies) dom.employeeForm.elements.companies.value = "";
   for (let i = 0; i < 7; i++) {
     if (dom.employeeForm.elements[`expectedHours${i}`]) {
       dom.employeeForm.elements[`expectedHours${i}`].value = (i === 0 || i === 6) ? 0 : 8;
@@ -855,9 +823,6 @@ async function onManualPunch(event) {
     const date = String(formData.get("date") || "");
     const time = String(formData.get("time") || "");
     const punchType = String(formData.get("punchType") || "");
-    const company = String(formData.get("company") || "");
-    
-    if (!employeeId) throw new Error("Selecione o colaborador.");
     const employee = findUserById(employeeId);
 
     if (!employee || employee.role !== "employee") throw new Error("Colaborador não encontrado.");
@@ -867,7 +832,6 @@ async function onManualPunch(event) {
       {
         employeeId,
         punchType,
-        company,
         timestamp: localDateTimeToIso(date, time),
         source: "admin",
       },
@@ -875,8 +839,6 @@ async function onManualPunch(event) {
     );
 
     dom.manualPunchForm.elements.time.value = "";
-    dom.manualPunchForm.elements.company.value = "";
-    dom.manualPunchForm.elements.employeeId.value = "";
     refreshUi();
     toast("Apontamento manual inserido.");
   } catch (error) {
@@ -933,25 +895,10 @@ async function onSelfPunch(type) {
 
   try {
     const notes = String(dom.punchObservationInput.value || "").trim();
-    const punchesToday = getPunchesForDay(state.me.id, todayKey());
-    let company = "";
-
-    const isEntryPunch = ["clock_in", "lunch_in"].includes(type);
-
-    if (isEntryPunch) {
-      company = dom.punchCompanySelect && !dom.punchCompanyContainer.classList.contains("hidden") ? String(dom.punchCompanySelect.value || "") : "";
-      if (!dom.punchCompanyContainer.classList.contains("hidden") && !company) {
-        throw new Error("Por favor, selecione a empresa antes de registrar o ponto.");
-      }
-    } else if (punchesToday.length > 0) {
-      company = punchesToday[punchesToday.length - 1].company || "";
-    }
-
     await addPunch(
       {
         employeeId: state.me.id,
         punchType: type,
-        company,
         timestamp: nowIso(),
         source: "self",
         notes,
@@ -960,7 +907,6 @@ async function onSelfPunch(type) {
     );
 
     dom.punchObservationInput.value = "";
-    if (dom.punchCompanySelect) dom.punchCompanySelect.value = "";
     refreshUi();
     showSection("punchSection");
     toast("Ponto registrado.");
@@ -1005,13 +951,12 @@ function onGenerateReport(event) {
     const employeeId = String(formData.get("employeeId") || "");
     const startDate = String(formData.get("startDate") || "");
     const endDate = String(formData.get("endDate") || "");
-    const company = dom.reportCompany ? String(dom.reportCompany.value || "") : "";
 
     if (!employeeId) throw new Error("Selecione um colaborador.");
     if (!startDate || !endDate) throw new Error("Informe o período do relatório.");
     if (startDate > endDate) throw new Error("A data inicial não pode ser maior que a final.");
 
-    state.reportFilters = { employeeId, startDate, endDate, company };
+    state.reportFilters = { employeeId, startDate, endDate };
     renderReportFromState();
   } catch (error) {
     toast(error.message);
@@ -1060,32 +1005,50 @@ function downloadReportCsv() {
     return;
   }
 
+  const netInfo = describeNetBalance(state.report.netBalanceMinutes);
   const rows = [
-    ["Relatório de Cartão Ponto"],
+    ["Relatório de Cartão Ponto (Espelho de Ponto)"],
     [],
     ["Colaborador", state.report.employee.name],
+    ["Setor", state.report.employee.department || "Não informado"],
     ["Período", `${formatDate(state.report.startDate)} a ${formatDate(state.report.endDate)}`],
-  ["Jornada", JOURNEY_TYPES[state.report.employee.journeyType] ? JOURNEY_TYPES[state.report.employee.journeyType].label : "N/A"],
-    ["Total Previsto", formatMinutesClock(state.report.expectedMinutes)],
-    ["Trabalhado", formatMinutesClock(state.report.totalWorkedMinutes)],
-    ["Horas extras", formatMinutesClock(state.report.totalOvertimeMinutes)],
-    ["Déficit", formatMinutesClock(state.report.totalMissingMinutes)],
+    ["Jornada", JOURNEY_TYPES[state.report.employee.journeyType] ? JOURNEY_TYPES[state.report.employee.journeyType].label : "N/A"],
     [],
-    ["Data", "Dia", "Tipo", "Empresa", "Entrada", "Saída almoço", "Retorno almoço", "Saída", "Previsto", "Trabalhado", "Extras", "Déficit"],
+    ["FECHAMENTO DO PERÍODO"],
+    ["Total de Horas Previstas", formatMinutesClock(state.report.expectedMinutes)],
+    ["Total de Horas Trabalhadas", formatMinutesClock(state.report.totalWorkedMinutes)],
+    ["Total de Horas Extras - Dia Útil (enquadramento padrão, ex.: 50%)", formatMinutesClock(state.report.totalOvertimeWeekdayMinutes)],
+    ["Total de Horas Extras - Domingo/Feriado (enquadramento conforme CCT; CLT: 100%)", formatMinutesClock(state.report.totalOvertimeSundayHolidayMinutes)],
+    ["Total de Horas Extras (geral)", formatMinutesClock(state.report.totalOvertimeMinutes)],
+    ["Total de Horas em Déficit (atrasos, faltas e saídas antecipadas)", formatMinutesClock(state.report.totalMissingMinutes)],
+    ["Saldo Líquido (Banco de Horas) = Extras - Déficit", `${formatMinutesSigned(state.report.netBalanceMinutes)} (${netInfo.label})`],
+    [],
+    [`Tolerância Art. 58, §1º da CLT aplicada em ${state.report.toleranceDays} dia(s): variações diárias de até ${CLT_TOLERANCE_DAILY_MINUTES} minutos não computadas como extra nem déficit.`],
+    [],
+    ["Data", "Dia", "Tipo", "Entrada", "Saída almoço", "Retorno almoço", "Saída", "Previsto", "Trabalhado", "Extras Dia Útil", "Extras Dom/Feriado", "Déficit", "Tolerância CLT"],
     ...state.report.days.map((day) => [
       formatDate(day.date),
       day.weekDay,
       day.holidayName || (day.isWorkDay ? "Dia de trabalho" : "Folga"),
-      day.company || "-",
       day.times.clock_in || "-",
       day.times.lunch_out || "-",
       day.times.lunch_in || "-",
       day.times.clock_out || "-",
       formatMinutesClock(day.expectedMinutes),
       formatMinutesClock(day.workedMinutes),
-      formatMinutesClock(day.overtimeMinutes),
+      formatMinutesClock(day.overtimeWeekdayMinutes),
+      formatMinutesClock(day.overtimeSundayHolidayMinutes),
       formatMinutesClock(day.missingMinutes),
+      day.toleranceApplied ? "Sim" : "-",
     ]),
+    ["TOTAIS", "", "", "", "", "", "",
+      formatMinutesClock(state.report.expectedMinutes),
+      formatMinutesClock(state.report.totalWorkedMinutes),
+      formatMinutesClock(state.report.totalOvertimeWeekdayMinutes),
+      formatMinutesClock(state.report.totalOvertimeSundayHolidayMinutes),
+      formatMinutesClock(state.report.totalMissingMinutes),
+      "",
+    ],
   ];
 
   const csv = `\uFEFF${rows.map((row) => row.map(escapeCsvCell).join(";")).join("\r\n")}`;
@@ -1095,13 +1058,15 @@ function downloadReportCsv() {
   toast("Relatório exportado em CSV.");
 }
 
-function buildReport(employee, startDate, endDate, companyFilter) {
-  let punches = getPunchesForRange(employee.id, startDate, endDate);
-  if (companyFilter) {
-    punches = punches.filter((p) => p.company === companyFilter);
-  }
+function buildReport(employee, startDate, endDate) {
+  const punches = getPunchesForRange(employee.id, startDate, endDate);
   const grouped = groupPunchesByDay(punches);
   const days = enumerateDates(startDate, endDate).map((dateKey) => summarizeDay(employee, dateKey, grouped.get(dateKey) || []));
+
+  const totalOvertimeWeekdayMinutes = days.reduce((total, day) => total + day.overtimeWeekdayMinutes, 0);
+  const totalOvertimeSundayHolidayMinutes = days.reduce((total, day) => total + day.overtimeSundayHolidayMinutes, 0);
+  const totalOvertimeMinutes = totalOvertimeWeekdayMinutes + totalOvertimeSundayHolidayMinutes;
+  const totalMissingMinutes = days.reduce((total, day) => total + day.missingMinutes, 0);
 
   return {
     employee,
@@ -1109,8 +1074,13 @@ function buildReport(employee, startDate, endDate, companyFilter) {
     endDate,
     expectedMinutes: days.reduce((total, day) => total + day.expectedMinutes, 0),
     totalWorkedMinutes: days.reduce((total, day) => total + day.workedMinutes, 0),
-    totalOvertimeMinutes: days.reduce((total, day) => total + day.overtimeMinutes, 0),
-    totalMissingMinutes: days.reduce((total, day) => total + day.missingMinutes, 0),
+    totalOvertimeMinutes,
+    totalOvertimeWeekdayMinutes,
+    totalOvertimeSundayHolidayMinutes,
+    totalMissingMinutes,
+    // Saldo Líquido (Banco de Horas): Extras - Déficit. Positivo = credor.
+    netBalanceMinutes: totalOvertimeMinutes - totalMissingMinutes,
+    toleranceDays: days.filter((day) => day.toleranceApplied).length,
     days,
   };
 }
@@ -1140,20 +1110,53 @@ function summarizeDay(employee, dateKey, punches) {
     workedMinutes = Math.max(0, workedMinutes);
   }
 
-  const overtimeMinutes = holiday || !isWorkDay ? workedMinutes : Math.max(0, workedMinutes - expectedMinutes);
-  const balance = workedMinutes - expectedMinutes;
-  const missingMinutes = isWorkDay ? Math.max(0, expectedMinutes - workedMinutes) : 0;
+  const isSunday = dayOfWeek === 0;
+  const isFuture = dateKey > todayKey();
+
+  // Saldo bruto do dia (trabalhado - previsto).
+  const rawBalanceMinutes = workedMinutes - expectedMinutes;
+
+  // Tolerância legal (Art. 58, §1º da CLT): variação diária de até 10 minutos
+  // não gera hora extra nem déficit. Acima do limite, computa-se a totalidade
+  // da variação (Súmula 366 do TST).
+  let toleranceApplied = false;
+  let effectiveBalanceMinutes = rawBalanceMinutes;
+  if (isWorkDay && workedMinutes > 0 && rawBalanceMinutes !== 0 && Math.abs(rawBalanceMinutes) <= CLT_TOLERANCE_DAILY_MINUTES) {
+    effectiveBalanceMinutes = 0;
+    toleranceApplied = true;
+  }
+
+  // Classificação das horas excedentes — apenas volume de tempo (HH:MM).
+  // O enquadramento percentual/financeiro é da contabilidade, conforme CCT:
+  // - Dia útil (inclui sábado): enquadramento padrão (ex.: 50%).
+  // - Domingo e feriado: coluna separada (CLT prevê 100% ou folga
+  //   compensatória; convenção coletiva pode dispor de forma diversa).
+  let overtimeWeekdayMinutes = 0;
+  let overtimeSundayHolidayMinutes = 0;
+  let missingMinutes = 0;
+
+  if (isWorkDay) {
+    if (effectiveBalanceMinutes > 0) {
+      if (isSunday) overtimeSundayHolidayMinutes = effectiveBalanceMinutes;
+      else overtimeWeekdayMinutes = effectiveBalanceMinutes;
+    } else if (effectiveBalanceMinutes < 0 && !isFuture) {
+      // Dias futuros não geram déficit antecipado em fechamentos parciais.
+      missingMinutes = Math.abs(effectiveBalanceMinutes);
+    }
+  } else if (workedMinutes > 0) {
+    if (holiday || isSunday) overtimeSundayHolidayMinutes = workedMinutes;
+    else overtimeWeekdayMinutes = workedMinutes;
+  }
+
+  const overtimeMinutes = overtimeWeekdayMinutes + overtimeSundayHolidayMinutes;
   const times = {};
   sortedPunches.forEach((punch) => {
     times[punch.punchType] = formatTime(new Date(punch.timestamp));
   });
 
-  const uniqueCompanies = Array.from(new Set(sortedPunches.map((p) => p.company).filter(Boolean)));
-  const company = uniqueCompanies.join(" / ") || "";
-
   let status = "default";
   if (isWorkDay) {
-    if (balance >= 0) status = "complete";
+    if (effectiveBalanceMinutes >= 0 && workedMinutes > 0) status = "complete";
     else if (workedMinutes > 0) status = "incomplete";
     else if (dateKey < todayKey()) status = "missing";
   }
@@ -1163,14 +1166,19 @@ function summarizeDay(employee, dateKey, punches) {
     weekDay: WEEKDAY_NAMES[date.getDay()],
     holidayName: holiday,
     isWorkDay,
+    isSunday,
     journeyDescription: journey ? (employee.workSchedule ? `${journey.label} (${employee.workSchedule})` : journey.label) : "Jornada não definida",
     expectedMinutes,
     workedMinutes,
     status,
+    rawBalanceMinutes,
+    balanceMinutes: effectiveBalanceMinutes,
+    toleranceApplied,
     overtimeMinutes,
+    overtimeWeekdayMinutes,
+    overtimeSundayHolidayMinutes,
     missingMinutes,
     times,
-    company,
   };
 }
 
@@ -1202,7 +1210,6 @@ async function addPunch(payload, options = { enforceSequence: false }) {
     id: makeId(),
     employeeId: payload.employeeId,
     punchType: payload.punchType,
-    company: payload.company || "",
     timestamp: payload.timestamp,
     source: payload.source || "self",
     notes: payload.notes || "",
@@ -1354,7 +1361,6 @@ function normalizeUser(user) {
     journeyType: ["integral", "meio-periodo"].includes(user.journeyType) ? user.journeyType : "integral",
     department: String(user.department || ""),
     workSchedule: String(user.workSchedule || ""),
-    companies: Array.isArray(user.companies) ? user.companies : (typeof user.companies === "string" ? user.companies.split(",").map((c) => c.trim()).filter(Boolean) : []),
     expectedHoursWeekly: Array.isArray(user.expectedHoursWeekly) ? user.expectedHoursWeekly.map(Number) : 
       (user.expectedHours !== undefined 
         ? [0, Number(user.expectedHours), Number(user.expectedHours), Number(user.expectedHours), Number(user.expectedHours), Number(user.expectedHours), 0] 
@@ -1374,7 +1380,6 @@ function normalizePunch(punch) {
     id: String(punch.id || makeId()),
     employeeId: String(punch.employeeId || punch.employee_id),
     punchType: String(punch.punchType || punch.punch_type || ""),
-    company: String(punch.company || ""),
     timestamp: String(punch.timestamp || nowIso()),
     source: String(punch.source || "self"),
     notes: String(punch.notes || ""),
@@ -1523,6 +1528,155 @@ function formatPunchSource(source) {
   return source === "admin" ? "Ajuste manual" : "Registro próprio";
 }
 
+// Formata minutos com sinal (ex.: +02:30 / -01:15). Usado para saldos.
+function formatMinutesSigned(totalMinutes) {
+  const value = Math.round(totalMinutes || 0);
+  const sign = value < 0 ? "-" : "+";
+  return `${sign}${formatMinutesClock(Math.abs(value))}`;
+}
+
+// Classifica o saldo líquido do banco de horas (somente tempo).
+function describeNetBalance(netMinutes) {
+  const value = Math.round(netMinutes || 0);
+  if (value > 0) return { key: "credor", label: "Colaborador CREDOR (saldo positivo)" };
+  if (value < 0) return { key: "devedor", label: "Colaborador DEVEDOR (saldo negativo)" };
+  return { key: "zerado", label: "Saldo zerado no período" };
+}
+
+// Gera o Espelho de Ponto para impressão (fechamento para contabilidade).
+function printReport() {
+  if (!state.report) {
+    toast("Gere um relatório antes de imprimir.");
+    return;
+  }
+
+  const report = state.report;
+  const netInfo = describeNetBalance(report.netBalanceMinutes);
+  const journeyLabel = JOURNEY_TYPES[report.employee.journeyType]
+    ? JOURNEY_TYPES[report.employee.journeyType].label
+    : "N/A";
+
+  const dayRows = report.days.map((day) => `
+    <tr>
+      <td>${formatDate(day.date)}${day.toleranceApplied ? " §" : ""}</td>
+      <td>${day.weekDay}</td>
+      <td>${day.holidayName || (day.isWorkDay ? "Trabalho" : "Folga")}</td>
+      <td>${day.times.clock_in || "-"}</td>
+      <td>${day.times.lunch_out || "-"}</td>
+      <td>${day.times.lunch_in || "-"}</td>
+      <td>${day.times.clock_out || "-"}</td>
+      <td>${formatMinutesClock(day.expectedMinutes)}</td>
+      <td>${formatMinutesClock(day.workedMinutes)}</td>
+      <td>${formatMinutesClock(day.overtimeWeekdayMinutes)}</td>
+      <td>${formatMinutesClock(day.overtimeSundayHolidayMinutes)}</td>
+      <td>${formatMinutesClock(day.missingMinutes)}</td>
+    </tr>
+  `).join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Espelho de Ponto - ${report.employee.name}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #111; margin: 24px; }
+  h1 { font-size: 16px; margin: 0 0 2px; }
+  h2 { font-size: 12px; margin: 0 0 14px; font-weight: normal; color: #444; }
+  .header-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 24px; margin-bottom: 14px; }
+  .header-grid span { display: block; }
+  .header-grid strong { font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+  th, td { border: 1px solid #999; padding: 3px 5px; text-align: center; }
+  th { background: #eee; font-size: 10px; }
+  tfoot td { background: #f4f4f4; font-weight: bold; }
+  .closing { border: 1px solid #999; padding: 10px 12px; margin-bottom: 18px; }
+  .closing h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; }
+  .closing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 18px; }
+  .closing-grid div span { display: block; color: #555; font-size: 10px; }
+  .closing-grid div strong { font-size: 13px; }
+  .net { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #999; font-size: 13px; }
+  .legal-note { font-size: 9px; color: #555; margin-bottom: 24px; }
+  .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 48px; }
+  .signatures div { border-top: 1px solid #111; text-align: center; padding-top: 4px; font-size: 10px; }
+  @media print { body { margin: 8mm; } }
+</style>
+</head>
+<body>
+  <h1>Espelho de Cartão Ponto</h1>
+  <h2>Fechamento de período para conferência e contabilidade — apuração exclusivamente em carga horária (HH:MM)</h2>
+
+  <div class="header-grid">
+    <span><strong>Colaborador:</strong> ${report.employee.name}</span>
+    <span><strong>Setor:</strong> ${report.employee.department || "Não informado"}</span>
+    <span><strong>Jornada:</strong> ${journeyLabel}${report.employee.workSchedule ? ` (${report.employee.workSchedule})` : ""}</span>
+    <span><strong>Período:</strong> ${formatDate(report.startDate)} a ${formatDate(report.endDate)}</span>
+    <span><strong>Emissão:</strong> ${new Date().toLocaleString("pt-BR")}</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th><th>Dia</th><th>Tipo</th>
+        <th>Entrada</th><th>Saída almoço</th><th>Retorno almoço</th><th>Saída</th>
+        <th>Previsto</th><th>Trabalhado</th><th>Extras Dia Útil</th><th>Extras Dom/Fer</th><th>Déficit</th>
+      </tr>
+    </thead>
+    <tbody>${dayRows}</tbody>
+    <tfoot>
+      <tr>
+        <td colspan="7">TOTAIS DO PERÍODO</td>
+        <td>${formatMinutesClock(report.expectedMinutes)}</td>
+        <td>${formatMinutesClock(report.totalWorkedMinutes)}</td>
+        <td>${formatMinutesClock(report.totalOvertimeWeekdayMinutes)}</td>
+        <td>${formatMinutesClock(report.totalOvertimeSundayHolidayMinutes)}</td>
+        <td>${formatMinutesClock(report.totalMissingMinutes)}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="closing">
+    <h3>Rodapé de Fechamento</h3>
+    <div class="closing-grid">
+      <div><span>Total de Horas Previstas</span><strong>${formatMinutesClock(report.expectedMinutes)}</strong></div>
+      <div><span>Total de Horas Trabalhadas</span><strong>${formatMinutesClock(report.totalWorkedMinutes)}</strong></div>
+      <div><span>Total de Horas em Déficit</span><strong>${formatMinutesClock(report.totalMissingMinutes)}</strong></div>
+      <div><span>Extras — Dia Útil (enquadramento padrão, ex.: 50%)</span><strong>${formatMinutesClock(report.totalOvertimeWeekdayMinutes)}</strong></div>
+      <div><span>Extras — Domingo/Feriado (conforme CCT; CLT: 100%)</span><strong>${formatMinutesClock(report.totalOvertimeSundayHolidayMinutes)}</strong></div>
+      <div><span>Total de Horas Extras (geral)</span><strong>${formatMinutesClock(report.totalOvertimeMinutes)}</strong></div>
+    </div>
+    <div class="net">
+      <strong>Saldo Líquido (Banco de Horas):</strong> ${formatMinutesSigned(report.netBalanceMinutes)} — ${netInfo.label}
+    </div>
+  </div>
+
+  <p class="legal-note">
+    § Tolerância legal (Art. 58, §1º da CLT) aplicada em ${report.toleranceDays} dia(s): variações de até
+    ${CLT_TOLERANCE_PER_PUNCH_MINUTES} minutos por marcação, limitadas a ${CLT_TOLERANCE_DAILY_MINUTES} minutos diários,
+    não foram computadas como hora extra nem como déficit. Ultrapassado o limite diário, a totalidade da variação foi
+    computada (Súmula 366 do TST). As colunas de horas extras estão segregadas por natureza do dia para aplicação do
+    adicional previsto na convenção coletiva pela contabilidade. Este documento não contém valores financeiros.
+  </p>
+
+  <div class="signatures">
+    <div>Assinatura do Colaborador</div>
+    <div>Assinatura do Empregador / Responsável</div>
+  </div>
+
+  <script>window.addEventListener("load", () => window.print());<\/script>
+</body>
+</html>`;
+
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    toast("Permita pop-ups para imprimir o espelho de ponto.");
+    return;
+  }
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
 function describePunchActivity(punch, includeEmployee) {
   const employee = findUserById(punch.employeeId);
   const prefix = includeEmployee && employee ? `${employee.name} • ` : "";
@@ -1608,6 +1762,8 @@ function injectStyles() {
     .day-status-incomplete td { background-color: #fff9e6; }
     .day-status-missing td { background-color: #fdecea; }
     .highlight-panel .metric strong { color: #212529; }
+    .report-totals td { background-color: #eef1f6; border-top: 2px solid #8a94a6; }
+    .tolerance-mark { color: #6b4de6; font-weight: bold; cursor: help; }
   `;
   document.head.appendChild(style);
 }

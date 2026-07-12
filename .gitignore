@@ -1,0 +1,8 @@
+# Ignorar Backups e Relatórios exportados
+*.json
+*.csv
+
+# Ignorar arquivos de Sistema Operacional
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -124,6 +124,11 @@
           <button type="submit" class="primary-btn">Consultar Dia</button>
         </form>
         <div id="punchSummary" class="top-gap"></div>
+        <div class="input-group top-gap hidden" id="punchCompanyContainer">
+          <label for="punchCompanySelect">Empresa</label>
+          <select id="punchCompanySelect"></select>
+          <small id="punchCompanyHint">Selecione a empresa para iniciar o período de trabalho.</small>
+        </div>
         <div class="punch-actions top-gap">
           <div class="punch-buttons-grid">
             <button class="punch-btn" data-type="clock_in"><span>Registrar</span><strong>Entrada</strong></button>
@@ -154,6 +159,11 @@
               <div class="input-group">
                 <label for="employeeDepartment">Setor (opcional)</label>
                 <input type="text" id="employeeDepartment" name="department">
+              </div>
+              <div class="input-group">
+                <label for="employeeCompanies">Empresas autorizadas</label>
+                <input type="text" id="employeeCompanies" name="companies" placeholder="Ex.: Empresa A, Empresa B" required>
+                <small>Separe os nomes por vírgula. O colaborador poderá escolher somente empresas desta lista.</small>
               </div>
               <div class="input-group">
                 <label for="employeeJourney">Formato de batidas</label>
@@ -225,6 +235,10 @@
               <div class="input-group">
                 <label for="manualPunchType">Tipo de batida</label>
                 <select id="manualPunchType" name="punchType" required></select>
+              </div>
+              <div class="input-group">
+                <label for="manualPunchCompany">Empresa</label>
+                <select id="manualPunchCompany" name="company" required></select>
               </div>
               <div class="toolbar">
                 <button type="submit" class="primary-btn">Inserir Batida</button>
@@ -311,6 +325,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
